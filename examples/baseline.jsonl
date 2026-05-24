@@ -1,0 +1,5 @@
+{"ts": 1.0, "session_id": "demo-baseline", "kind": "session_open"}
+{"ts": 1.1, "session_id": "demo-baseline", "kind": "tool_ok", "tool": "search_web", "args": {"q": "claude release"}, "usd": 0.0012, "latency_ms": 220}
+{"ts": 1.4, "session_id": "demo-baseline", "kind": "tool_ok", "tool": "fetch_url", "args": {"url": "https://anthropic.com/news"}, "usd": 0.0004, "latency_ms": 410}
+{"ts": 1.9, "session_id": "demo-baseline", "kind": "tool_ok", "tool": "summarize", "args": {"input_tokens": 1850}, "usd": 0.0380, "latency_ms": 1100}
+{"ts": 3.0, "session_id": "demo-baseline", "kind": "tool_ok", "tool": "final_answer", "args": {"len": 320}, "usd": 0.0014, "latency_ms": 90}

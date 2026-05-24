@@ -1,0 +1,4 @@
+{"ts": 1.0, "session_id": "demo-candidate", "kind": "session_open"}
+{"ts": 1.1, "session_id": "demo-candidate", "kind": "tool_ok", "tool": "search_web", "args": {"q": "claude 4 release date"}, "usd": 0.0012, "latency_ms": 215}
+{"ts": 1.4, "session_id": "demo-candidate", "kind": "tool_ok", "tool": "fetch_url", "args": {"url": "https://anthropic.com/news"}, "usd": 0.0004, "latency_ms": 405}
+{"ts": 2.6, "session_id": "demo-candidate", "kind": "tool_ok", "tool": "final_answer", "args": {"len": 280}, "usd": 0.0012, "latency_ms": 88}

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tool-call-diff"
+version = "0.1.0"
+description = "Diff two agent runs from JSONL audit logs. See what your prompt change actually moved: tool order, cost, step count, args. Zero deps."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Mukunda Rao Katta", email = "mukunda.vjcs6@gmail.com" }]
+keywords = ["agents", "audit", "diff", "evaluation", "prompt-engineering", "observability", "jsonl", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Monitoring",
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/MukundaKatta/tool-call-diff"
+Repository = "https://github.com/MukundaKatta/tool-call-diff"
+Issues = "https://github.com/MukundaKatta/tool-call-diff/issues"
+
+[project.scripts]
+tool-call-diff = "tool_call_diff.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tool_call_diff = ["py.typed"]
