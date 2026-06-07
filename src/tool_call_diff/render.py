@@ -1,7 +1,8 @@
 """Render a RunDiff as a git-style ASCII block.
 
-We walk the two call lists in lockstep so the reader can see exactly where
-the runs diverge. Each line starts with a status marker:
+We walk the candidate run in order so the reader sees what the new run looks
+like, interleaving removed (baseline-only) rows where they used to sit. Each
+line starts with a status marker:
 
   =   identical at this position
   -   removed (was in baseline, not in candidate)
@@ -24,83 +25,82 @@ def _fmt_call(tool: str, args_hash: str, args_preview: str | None) -> str:
 
 
 def render_diff(diff: "RunDiff", show_summary: bool = True) -> str:
-    """Render the diff. Output is plain ASCII so it pipes safely anywhere."""
+    """Render the diff. Output is plain ASCII so it pipes safely anywhere.
 
-    # Index granular changes by position for fast lookup.
+    The body is rendered in candidate order, since the reader cares about what
+    the new run looks like. Removed rows (baseline-only) are flushed in baseline
+    order at the point their preceding baseline neighbour was last emitted, so a
+    deletion still shows up roughly where it used to be. Each call appears on
+    exactly one body line.
+    """
+
+    # Index granular changes by candidate position for fast lookup.
     changed_by_cpos: dict[int, tuple[str, str]] = {}
     for ch in diff.changed_args:
         changed_by_cpos[ch.position] = (ch.args_hash_before, ch.args_hash_after)
     added_cpos = {a.position for a in diff.added_calls}
-    removed_bpos = {r.position for r in diff.removed_calls}
-    reordered_by_bpos = {r.baseline_pos: r for r in diff.reordered}
     reordered_by_cpos = {r.candidate_pos: r for r in diff.reordered}
 
+    # Removed rows grouped by the baseline position they sit at, so we can flush
+    # them in baseline order interleaved with the candidate walk.
+    removed_by_bpos = {r.position: r for r in diff.removed_calls}
+    removed_positions = sorted(removed_by_bpos)
+    removed_idx = 0
+
     lines: list[str] = []
-    b_i = 0
-    c_i = 0
     b_len = len(diff.baseline)
     c_len = len(diff.candidate)
 
-    while b_i < b_len or c_i < c_len:
-        # Emit pure removals first if the baseline pointer is on a removed row.
-        if b_i < b_len and b_i in removed_bpos and b_i not in reordered_by_bpos:
-            bc = diff.baseline[b_i]
-            lines.append(f"- {_fmt_call(bc.tool, bc.args_hash, bc.args_preview)}")
-            b_i += 1
-            continue
-        # Emit pure additions if the candidate pointer is on an added row.
-        if c_i < c_len and c_i in added_cpos and c_i not in reordered_by_cpos:
-            cc = diff.candidate[c_i]
-            lines.append(f"+ {_fmt_call(cc.tool, cc.args_hash, cc.args_preview)}")
-            c_i += 1
-            continue
-        # Args change at this paired position.
-        if (
-            b_i < b_len
-            and c_i < c_len
-            and c_i in changed_by_cpos
-            and diff.baseline[b_i].tool == diff.candidate[c_i].tool
+    def _flush_removed_up_to(bpos_limit: int) -> None:
+        """Emit any pending removed rows with baseline position < bpos_limit."""
+        nonlocal removed_idx
+        while (
+            removed_idx < len(removed_positions)
+            and removed_positions[removed_idx] < bpos_limit
         ):
-            bc = diff.baseline[b_i]
-            cc = diff.candidate[c_i]
-            lines.append(f"~ {_fmt_call(bc.tool, bc.args_hash, bc.args_preview)}  (was)")
-            lines.append(f"~ {_fmt_call(cc.tool, cc.args_hash, cc.args_preview)}  (now)")
-            b_i += 1
-            c_i += 1
-            continue
-        # Reordered: a row whose signature is the same but moved.
-        if b_i < b_len and b_i in reordered_by_bpos:
-            r = reordered_by_bpos[b_i]
+            bc = diff.baseline[removed_positions[removed_idx]]
+            lines.append(f"- {_fmt_call(bc.tool, bc.args_hash, bc.args_preview)}")
+            removed_idx += 1
+
+    cpos_to_bpos = diff._cpos_to_bpos
+
+    for c_i in range(c_len):
+        cc = diff.candidate[c_i]
+        # Reordered: this candidate slot holds a call that moved here. Flush any
+        # removed rows that came before its baseline origin first.
+        if c_i in reordered_by_cpos:
+            r = reordered_by_cpos[c_i]
+            _flush_removed_up_to(r.baseline_pos)
             lines.append(
                 f"^ {r.tool:<24}moved from pos {r.baseline_pos} -> {r.candidate_pos}"
             )
-            b_i += 1
-            # Skip the matching candidate slot when we get there.
             continue
-        if c_i < c_len and c_i in reordered_by_cpos and not (
-            b_i < b_len and b_i in reordered_by_bpos
-        ):
-            # The baseline side already emitted the move marker; just advance.
-            c_i += 1
-            continue
-        # Equal row.
-        if b_i < b_len and c_i < c_len:
-            cc = diff.candidate[c_i]
-            lines.append(f"= {_fmt_call(cc.tool, cc.args_hash, cc.args_preview)}")
-            b_i += 1
-            c_i += 1
-            continue
-        # Tail flush.
-        if b_i < b_len:
-            bc = diff.baseline[b_i]
-            lines.append(f"- {_fmt_call(bc.tool, bc.args_hash, bc.args_preview)}")
-            b_i += 1
-            continue
-        if c_i < c_len:
-            cc = diff.candidate[c_i]
+        # Pure addition: candidate-only call.
+        if c_i in added_cpos:
             lines.append(f"+ {_fmt_call(cc.tool, cc.args_hash, cc.args_preview)}")
-            c_i += 1
             continue
+        # Args change at this paired position (same tool, different args).
+        if c_i in changed_by_cpos:
+            before_hash, _after_hash = changed_by_cpos[c_i]
+            bpos = cpos_to_bpos.get(c_i)
+            if bpos is not None:
+                _flush_removed_up_to(bpos)
+                before_preview = diff.baseline[bpos].args_preview
+            else:
+                before_preview = None
+            lines.append(f"~ {_fmt_call(cc.tool, before_hash, before_preview)}  (was)")
+            lines.append(
+                f"~ {_fmt_call(cc.tool, cc.args_hash, cc.args_preview)}  (now)"
+            )
+            continue
+        # Equal row: flush removals that belong before this baseline slot, then
+        # emit the unchanged call.
+        bpos = cpos_to_bpos.get(c_i, c_i)
+        _flush_removed_up_to(bpos)
+        lines.append(f"= {_fmt_call(cc.tool, cc.args_hash, cc.args_preview)}")
+
+    # Flush any remaining removed rows (deletions at the tail of the baseline).
+    _flush_removed_up_to(b_len + 1)
 
     if show_summary:
         lines.append("")

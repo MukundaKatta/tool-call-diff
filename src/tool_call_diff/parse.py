@@ -159,7 +159,9 @@ def _extract_one(record: dict[str, Any], position: int) -> ToolCall | None:
     )
 
 
-def parse_lines(lines: Iterable[str], session_key: str | None = "session_id") -> list[ToolCall]:
+def parse_lines(
+    lines: Iterable[str], session_key: str | None = "session_id"
+) -> list[ToolCall]:
     """Parse a JSONL stream into tool calls.
 
     If session_key is provided and the log has multiple sessions, only the
@@ -206,7 +208,9 @@ def parse_lines(lines: Iterable[str], session_key: str | None = "session_id") ->
     return calls
 
 
-def parse_file(path: str | Path, session_key: str | None = "session_id") -> list[ToolCall]:
+def parse_file(
+    path: str | Path, session_key: str | None = "session_id"
+) -> list[ToolCall]:
     """Read a .jsonl file and return tool calls in order."""
     p = Path(path)
     with p.open("r", encoding="utf-8") as fh:

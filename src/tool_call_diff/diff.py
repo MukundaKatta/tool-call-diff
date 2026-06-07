@@ -72,6 +72,11 @@ class RunDiff:
     changed_args: list[ChangedArg] = field(default_factory=list)
     reordered: list[Reorder] = field(default_factory=list)
 
+    # Internal: maps a paired candidate position (equal or changed-args row) to
+    # its corresponding baseline position. Used by the renderer to anchor
+    # deletions and recover the baseline arg preview. Not part of the public API.
+    _cpos_to_bpos: dict[int, int] = field(default_factory=dict, repr=False)
+
     def render(self, **kwargs: Any) -> str:
         # Delayed import so render is optional / swappable.
         from .render import render_diff
@@ -119,11 +124,15 @@ def _classify(baseline: list[ToolCall], candidate: list[ToolCall]) -> RunDiff:
     # changed_args if the tool names match, else add+remove.
     for tag, i1, i2, j1, j2 in opcodes:
         if tag == "equal":
+            for off in range(i2 - i1):
+                diff._cpos_to_bpos[j1 + off] = i1 + off
             continue
         if tag == "insert":
             for j in range(j1, j2):
                 cc = candidate[j]
-                diff.added_calls.append(AddedCall(tool=cc.tool, args_hash=cc.args_hash, position=j))
+                diff.added_calls.append(
+                    AddedCall(tool=cc.tool, args_hash=cc.args_hash, position=j)
+                )
             continue
         if tag == "delete":
             for i in range(i1, i2):
@@ -148,6 +157,7 @@ def _classify(baseline: list[ToolCall], candidate: list[ToolCall]) -> RunDiff:
                         args_hash_after=cc.args_hash,
                     )
                 )
+                diff._cpos_to_bpos[j1 + k] = i1 + k
             else:
                 diff.removed_calls.append(
                     RemovedCall(tool=bc.tool, args_hash=bc.args_hash, position=i1 + k)
@@ -190,7 +200,9 @@ def _classify(baseline: list[ToolCall], candidate: list[ToolCall]) -> RunDiff:
             bpos = removed_positions[k]
             cpos = added_positions[k]
             reordered.append(
-                Reorder(tool=sig[0], args_hash=sig[1], baseline_pos=bpos, candidate_pos=cpos)
+                Reorder(
+                    tool=sig[0], args_hash=sig[1], baseline_pos=bpos, candidate_pos=cpos
+                )
             )
             consumed_removed.add((sig, bpos))
             consumed_added.add((sig, cpos))
@@ -200,13 +212,17 @@ def _classify(baseline: list[ToolCall], candidate: list[ToolCall]) -> RunDiff:
     if reordered:
         diff.reordered = reordered
         diff.removed_calls = [
-            r for r in diff.removed_calls if ((r.tool, r.args_hash), r.position) not in consumed_removed
+            r
+            for r in diff.removed_calls
+            if ((r.tool, r.args_hash), r.position) not in consumed_removed
         ]
         diff.added_calls = [
-            a for a in diff.added_calls if ((a.tool, a.args_hash), a.position) not in consumed_added
+            a
+            for a in diff.added_calls
+            if ((a.tool, a.args_hash), a.position) not in consumed_added
         ]
 
-    diff.tool_sequence_match = (b_sigs == c_sigs)
+    diff.tool_sequence_match = b_sigs == c_sigs
     diff.cost_delta_usd = round(_sum_cost(candidate) - _sum_cost(baseline), 6)
     diff.steps_delta = len(candidate) - len(baseline)
 

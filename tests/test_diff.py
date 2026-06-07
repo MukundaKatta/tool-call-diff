@@ -6,7 +6,13 @@ from tool_call_diff.diff import diff_runs
 from tool_call_diff.parse import ToolCall
 
 
-def _c(tool: str, args_hash: str, position: int, usd: float = 0.0, latency: float | None = None):
+def _c(
+    tool: str,
+    args_hash: str,
+    position: int,
+    usd: float = 0.0,
+    latency: float | None = None,
+):
     return ToolCall(
         tool=tool,
         args_hash=args_hash,
@@ -117,17 +123,57 @@ def test_diff_from_jsonl_files(tmp_path):
     base.write_text(
         "\n".join(
             [
-                json.dumps({"kind": "tool_ok", "tool": "search", "args": {"q": "a"}, "session_id": "s1", "usd": 0.01}),
-                json.dumps({"kind": "tool_ok", "tool": "answer", "args": {"len": 100}, "session_id": "s1", "usd": 0.0}),
+                json.dumps(
+                    {
+                        "kind": "tool_ok",
+                        "tool": "search",
+                        "args": {"q": "a"},
+                        "session_id": "s1",
+                        "usd": 0.01,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "kind": "tool_ok",
+                        "tool": "answer",
+                        "args": {"len": 100},
+                        "session_id": "s1",
+                        "usd": 0.0,
+                    }
+                ),
             ]
         )
     )
     cand.write_text(
         "\n".join(
             [
-                json.dumps({"kind": "tool_ok", "tool": "search", "args": {"q": "a"}, "session_id": "s1", "usd": 0.01}),
-                json.dumps({"kind": "tool_ok", "tool": "verify", "args": {"k": 1}, "session_id": "s1", "usd": 0.002}),
-                json.dumps({"kind": "tool_ok", "tool": "answer", "args": {"len": 100}, "session_id": "s1", "usd": 0.0}),
+                json.dumps(
+                    {
+                        "kind": "tool_ok",
+                        "tool": "search",
+                        "args": {"q": "a"},
+                        "session_id": "s1",
+                        "usd": 0.01,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "kind": "tool_ok",
+                        "tool": "verify",
+                        "args": {"k": 1},
+                        "session_id": "s1",
+                        "usd": 0.002,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "kind": "tool_ok",
+                        "tool": "answer",
+                        "args": {"len": 100},
+                        "session_id": "s1",
+                        "usd": 0.0,
+                    }
+                ),
             ]
         )
     )
